@@ -12,6 +12,7 @@ __maintainer__	= "Chris Nasr"
 __email__		= "ouroboroscode@gmail.com"
 
 # Import python core modules
+import math
 import re
 import sys
 
@@ -19,7 +20,7 @@ import sys
 import rethinkdb as r
 
 # Compile index regex
-_INDEX_REGEX	= re.compile(r'r\.row\(([^)])\)')
+_INDEX_REGEX	= re.compile(r'(?:\.getField\("([^"]+)"\)|r\.row\("([^"]+)"\))')
 
 # Clone
 def clone(source, destination, dbs, verbose = False):
@@ -119,33 +120,84 @@ def clone(source, destination, dbs, verbose = False):
 		# Go through each Table
 		for sTable in lTables:
 
-			# Check if the table already exists
-			if r.db(sDB).table_list().contains(sTable).run(oDest):
-				sys.stderr.write('Table "%s.%s" already exists on the destination host\n"' % (sDB, sTable))
-				continue
-
 			# If verbose mode is on
 			if verbose:
 
 				# Output
-				sys.stdout.write('  Processing Table "%s": [                         ] 0%' % sTable)
+				sys.stdout.write('  Processing Table "%s": [                         ] 0%%' % sTable)
 
 				# Get the number of documents in the table
-				iCount	= r.db(sDB).table(sTable).run(oSource)
+				fTotal	= float(r.db(sDB).table(sTable).count().run(oSource))
 
 				# Calculate the block size
-				iBlock	= iCount / 25
+				fBlock	= fTotal / 25.0
+
+				# Init the count and the ticks
+				iCount	= 0
+				iTicks	= 0
 
 			# Create the Table
 			r.db(sDB).table_create(sTable).run(oDest)
 
+			# Get the list of indexes
+			lIndexes	= r.db(sDB).table(sTable).index_status().run(oSource)
+
 			# Create each index
-			for dIndex in r.db(sDB).table(sTable).index_status().run(oSource):
+			for dIndex in lIndexes:
 
 				# Pull out the name
 				sName	= dIndex['index']
 
 				# Pull out the fields
-				oMatch	= re.match()
+				oMatches	= _INDEX_REGEX.findall(dIndex['query'])
 
-				r.db(sDB).table(sTable).index_create()
+				# If there's only one field
+				if len(oMatches) == 1:
+
+					# Create a single field index
+					r.db(sDB).table(sTable).index_create(oMatches[0][0]).run(oDest)
+
+				# Else if the index is comprised of multiple fields
+				else:
+
+					# Pull out each field
+					lFields	= []
+					for tMatch in oMatches:
+						lFields.append(r.row[tMatch[1]])
+
+					# Create a multi-index field
+					r.db(sDB).table(sTable).index_create(sName, lFields).run(oDest)
+
+			# Copy the data one document at a time
+			for dDoc in r.db(sDB).table(sTable).run(oSource):
+
+				# Copy the document to the destination
+				r.db(sDB).table(sTable).insert(dDoc).run(oDest)
+
+				# If verbose mode is on
+				if verbose:
+
+					# Increment the count
+					iCount	+= 1
+
+					# Get the number of ticks
+					iTemp	= int(round(float(iCount) / fBlock))
+
+					# If the ticks are more than the previous
+					if iTemp > iTicks:
+						iTicks	= iTemp
+
+						# Output
+						sys.stdout.write('\r  Processing Table "%s": [' % sTable)
+						for i in range(0, iTicks):
+							sys.stdout.write('=')
+						for i in range(iTicks, 25):
+							sys.stdout.write(' ')
+						sys.stdout.write('] %d%%' % (iTicks * 4))
+						sys.stdout.flush()
+
+			# If verbose mode is on
+			if verbose:
+
+				# Output
+				sys.stdout.write('\r  Processing Table "%s": [=========================] 100%%\n' % sTable)
