@@ -22,6 +22,9 @@ import rethinkdb as r
 # Compile index regex
 _INDEX_REGEX	= re.compile(r'(?:\.getField\("([^"]+)"\)|r\.row\("([^"]+)"\))')
 
+# Number of "=" in progress bar
+_PROGRESS_TICKS	= 25
+
 # Clone
 def clone(source, destination, dbs, verbose = False):
 	"""Clone
@@ -120,6 +123,11 @@ def clone(source, destination, dbs, verbose = False):
 		# Go through each Table
 		for sTable in lTables:
 
+			# If the DB doesn't exist in the source
+			if sTable not in lSourceTables:
+				sys.stderr.write('No such Table "%s.%s" on the source host\n' % (sDB,sTable))
+				continue
+
 			# If verbose mode is on
 			if verbose:
 
@@ -130,14 +138,17 @@ def clone(source, destination, dbs, verbose = False):
 				fTotal	= float(r.db(sDB).table(sTable).count().run(oSource))
 
 				# Calculate the block size
-				fBlock	= fTotal / 25.0
+				fBlock	= fTotal / _PROGRESS_TICKS
 
 				# Init the count and the ticks
 				iCount	= 0
 				iTicks	= 0
 
+			# Get the primary key of the table
+			sKeyField	= r.db(sDB).table(sTable).info().run(oSource)['primary_key']
+
 			# Create the Table
-			r.db(sDB).table_create(sTable).run(oDest)
+			r.db(sDB).table_create(sTable, primary_key=sKeyField).run(oDest)
 
 			# Get the list of indexes
 			lIndexes	= r.db(sDB).table(sTable).index_status().run(oSource)
@@ -191,7 +202,7 @@ def clone(source, destination, dbs, verbose = False):
 						sys.stdout.write('\r  Processing Table "%s": [' % sTable)
 						for i in range(0, iTicks):
 							sys.stdout.write('=')
-						for i in range(iTicks, 25):
+						for i in range(iTicks, _PROGRESS_TICKS):
 							sys.stdout.write(' ')
 						sys.stdout.write('] %d%%' % (iTicks * 4))
 						sys.stdout.flush()
