@@ -26,7 +26,7 @@ _INDEX_REGEX	= re.compile(r'(?:\.getField\("([^"]+)"\)|r\.row\("([^"]+)"\))')
 _PROGRESS_TICKS	= 25
 
 # Clone
-def clone(source, destination, dbs, verbose = False):
+def clone(source, destination, dbs = None, verbose = False):
 	"""Clone
 
 	Clone is used to clone one or many DBs/Tables from one host to another
@@ -132,7 +132,7 @@ def clone(source, destination, dbs, verbose = False):
 			if verbose:
 
 				# Output
-				sys.stdout.write('  Processing Table "%s": [                         ] 0%%' % sTable)
+				sys.stdout.write('  Processing Table "%s": [%s] 0%%' % (sTable, (' ' * _PROGRESS_TICKS)))
 
 				# Get the number of documents in the table
 				fTotal	= float(r.db(sDB).table(sTable).count().run(oSource))
@@ -199,16 +199,16 @@ def clone(source, destination, dbs, verbose = False):
 						iTicks	= iTemp
 
 						# Output
-						sys.stdout.write('\r  Processing Table "%s": [' % sTable)
-						for i in range(0, iTicks):
-							sys.stdout.write('=')
-						for i in range(iTicks, _PROGRESS_TICKS):
-							sys.stdout.write(' ')
-						sys.stdout.write('] %d%%' % (iTicks * 4))
+						sys.stdout.write('\r  Processing Table "%s": [%s%s] %d%%' % (
+							sTable,
+							('=' * iTicks),
+							(' ' * (_PROGRESS_TICKS - iTicks)),
+							(iTicks * 4)
+						))
 						sys.stdout.flush()
 
 			# If verbose mode is on
 			if verbose:
 
 				# Output
-				sys.stdout.write('\r  Processing Table "%s": [=========================] 100%%\n' % sTable)
+				sys.stdout.write('\r  Processing Table "%s": [%s] 100%%\n' % (sTable, ('=' * _PROGRESS_TICKS)))
