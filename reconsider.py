@@ -10,9 +10,9 @@ import Reconsider
 # parseArgs
 def parseArgs(args):
 	"""Parse Arguments
-	
+
 	Used to parse the arguments passed to the script
-	
+
 	Args:
 		args (list): A list of strings representing arguments to a script
 
@@ -55,13 +55,13 @@ def parseArgs(args):
 # printHelp
 def printHelp(script):
 	"""Print Help
-	
+
 	Prints out the arguments needs to run the script
-	
+
 	Returns:
 		None
 	"""
-	
+
 	print 'Reconsider cli script copyright 2016 OuroborosCoding'
 	print ''
 	print script + ' --source=localhost:28015 --destination=somedomain.com:28015'
@@ -127,7 +127,7 @@ else:
 	elif iDest == 4:	dDest	= {"host":lDest[0],"port":int(lDest[1]),"user":lDest[2],"passwd":lDest[3]}
 
 # If the DBs are specified
-lDBs	= ('dbs' in dArgs and dArgs['dbs'].split(',') or None)
+lDBs	= ('db' in dArgs and dArgs['db'].split(',') or None)
 
 # Call clone
 Reconsider.clone(dSource, dDest, lDBs, ('verbose' in dArgs and True or False))
