@@ -96,13 +96,19 @@ def clone(source, destination, dbs = None, verbose = False):
 	# Go through each DB listed
 	for sDB,lTables in dbs.iteritems():
 
+		# DBs can't have spaces, so we assume we want to rename the DB if there is one
+		if ' ' in sDB:
+			sDB, sCopyDB = sDB.split(' ')
+		else:
+			sCopyDB = sDB
+
 		# If the DB doesn't exist in the source
 		if sDB not in lSourceDBs:
 			sys.stderr.write('No such DB "%s" on the source host\n' % sDB)
 			continue
 
 		# Check if the DB exists on the destination
-		if r.db_list().contains(sDB).run(oDest):
+		if r.db_list().contains(sCopyDB).run(oDest):
 			sys.stderr.write('DB "%s" already exists on the destination host\n"' % sDB)
 			continue
 
@@ -111,7 +117,7 @@ def clone(source, destination, dbs = None, verbose = False):
 			sys.stdout.write('Processing DB "%s"\n' % sDB)
 
 		# Create the DB on the destination host
-		r.db_create(sDB).run(oDest)
+		r.db_create(sCopyDB).run(oDest)
 
 		# Get all the tables in the DB
 		lSourceTables	= r.db(sDB).table_list().run(oSource)
@@ -148,7 +154,7 @@ def clone(source, destination, dbs = None, verbose = False):
 			sKeyField	= r.db(sDB).table(sTable).info().run(oSource)['primary_key']
 
 			# Create the Table
-			r.db(sDB).table_create(sTable, primary_key=sKeyField).run(oDest)
+			r.db(sCopyDB).table_create(sTable, primary_key=sKeyField).run(oDest)
 
 			# Get the list of indexes
 			lIndexes	= r.db(sDB).table(sTable).index_status().run(oSource)
@@ -166,7 +172,7 @@ def clone(source, destination, dbs = None, verbose = False):
 				if len(oMatches) == 1:
 
 					# Create a single field index
-					r.db(sDB).table(sTable).index_create(oMatches[0][0]).run(oDest)
+					r.db(sCopyDB).table(sTable).index_create(oMatches[0][0]).run(oDest)
 
 				# Else if the index is comprised of multiple fields
 				else:
@@ -177,13 +183,13 @@ def clone(source, destination, dbs = None, verbose = False):
 						lFields.append(r.row[tMatch[1]])
 
 					# Create a multi-index field
-					r.db(sDB).table(sTable).index_create(sName, lFields).run(oDest)
+					r.db(sCopyDB).table(sTable).index_create(sName, lFields).run(oDest)
 
 			# Copy the data one document at a time
 			for dDoc in r.db(sDB).table(sTable).run(oSource):
 
 				# Copy the document to the destination
-				r.db(sDB).table(sTable).insert(dDoc).run(oDest)
+				r.db(sCopyDB).table(sTable).insert(dDoc).run(oDest)
 
 				# If verbose mode is on
 				if verbose:
